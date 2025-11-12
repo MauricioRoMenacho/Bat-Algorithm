@@ -5,161 +5,330 @@
 #include <cstdlib>
 using namespace std;
 
-// ---------------------------------------------------------
-// 🔹 Definición del problema de la mochila
-// ---------------------------------------------------------
-const int NUM_OBJETOS = 10;
-const int CAPACIDAD_MAX = 35;
 
-int valores[NUM_OBJETOS] = {10, 5, 15, 7, 6, 18, 3, 12, 8, 9};
-int pesos[NUM_OBJETOS]   = {2, 5, 7, 1, 4, 6, 3, 6, 3, 2};
+class Mochila {
+private:
+    int numObjetos;
+    int capacidadMax;
+    vector<int> valores;
+    vector<int> pesos;
 
-double fitness(const vector<int>& solucion) {
-    int peso_total = 0;
-    int valor_total = 0;
+public:
+   
+    Mochila(int n, int cap, const vector<int>& vals, const vector<int>& ps) 
+        : numObjetos(n), capacidadMax(cap), valores(vals), pesos(ps) {}
 
-    for (int i = 0; i < NUM_OBJETOS; i++) {
-        peso_total += pesos[i] * solucion[i];
-        valor_total += valores[i] * solucion[i];
+    // Getters
+    int getNumObjetos() const { return numObjetos; }
+    int getCapacidadMax() const { return capacidadMax; }
+    int getValor(int i) const { return valores[i]; }
+    int getPeso(int i) const { return pesos[i]; }
+
+   
+    double calcularFitness(const vector<int>& solucion) const {
+        int pesoTotal = 0;
+        int valorTotal = 0;
+
+        for (int i = 0; i < numObjetos; i++) {
+            pesoTotal += pesos[i] * solucion[i];
+            valorTotal += valores[i] * solucion[i];
+        }
+
+       
+        if (pesoTotal > capacidadMax)
+            return 0.0;
+
+        return valorTotal;
     }
 
-    // Penalización si se pasa de capacidad
-    if (peso_total > CAPACIDAD_MAX)
-        return 0;
-
-    return valor_total;
-}
-
-// ---------------------------------------------------------
-// 🔹 Parámetros del Algoritmo de Murciélago
-// ---------------------------------------------------------
-const int NUM_MURCIELAGOS = 20;
-const int MAX_ITER = 100;
-const double FREQ_MIN = 0.0;
-const double FREQ_MAX = 2.0;
-const double ALPHA = 0.9;
-const double GAMMA = 0.9;
-
-double rand01() { return (double)rand() / RAND_MAX; }
-
-int binarize(double value) {
-    return (rand01() < 1.0 / (1.0 + exp(-10 * (value - 0.5)))) ? 1 : 0;
-}
-
-// ---------------------------------------------------------
-// 🔹 Programa principal
-// ---------------------------------------------------------
-int main() {
-    srand(time(0));
-
-    vector<vector<double>> posiciones(NUM_MURCIELAGOS, vector<double>(NUM_OBJETOS, 0.0));
-    vector<vector<double>> velocidades(NUM_MURCIELAGOS, vector<double>(NUM_OBJETOS, 0.0));
-    vector<double> frecuencia(NUM_MURCIELAGOS, 0.0);
-    vector<double> loudness(NUM_MURCIELAGOS, 1.0);
-    vector<double> pulse_rate(NUM_MURCIELAGOS, 0.5);
-    vector<double> fitness_val(NUM_MURCIELAGOS, 0.0);
-
-    // Inicializar murciélagos con soluciones aleatorias
-    for (int i = 0; i < NUM_MURCIELAGOS; i++) {
-        for (int j = 0; j < NUM_OBJETOS; j++)
-            posiciones[i][j] = rand01();
-
-        vector<int> sol(NUM_OBJETOS);
-        for (int j = 0; j < NUM_OBJETOS; j++)
-            sol[j] = binarize(posiciones[i][j]);
-
-        fitness_val[i] = fitness(sol);
+    // Calcular peso total de una solución
+    int calcularPesoTotal(const vector<int>& solucion) const {
+        int pesoTotal = 0;
+        for (int i = 0; i < numObjetos; i++) {
+            pesoTotal += pesos[i] * solucion[i];
+        }
+        return pesoTotal;
     }
 
-    // Mejor solución inicial
-    double best_fitness = fitness_val[0];
-    vector<double> best_pos = posiciones[0];
+    
+    int calcularValorTotal(const vector<int>& solucion) const {
+        int valorTotal = 0;
+        for (int i = 0; i < numObjetos; i++) {
+            valorTotal += valores[i] * solucion[i];
+        }
+        return valorTotal;
+    }
 
-    for (int i = 1; i < NUM_MURCIELAGOS; i++) {
-        if (fitness_val[i] > best_fitness) {
-            best_fitness = fitness_val[i];
-            best_pos = posiciones[i];
+ 
+    bool esFactible(const vector<int>& solucion) const {
+        return calcularPesoTotal(solucion) <= capacidadMax;
+    }
+
+   
+    void mostrarInfo() const {
+        cout << "=== INFORMACIÓN DE LA MOCHILA ===" << endl;
+        cout << "Número de objetos: " << numObjetos << endl;
+        cout << "Capacidad maxima: " << capacidadMax << endl;
+        cout << "\nObjeto | Valor | Peso" << endl;
+        cout << "-------|-------|------" << endl;
+        for (int i = 0; i < numObjetos; i++) {
+            cout << "   " << i + 1 << "   |  " << valores[i] << "    |  " << pesos[i] << endl;
+        }
+        cout << "==================================" << endl;
+    }
+};
+
+
+class Murcielago {
+private:
+    vector<double> posicion;
+    vector<double> velocidad;
+    double frecuencia;
+    double loudness;
+    double pulseRate;
+    double fitness;
+    int dimension;
+
+public:
+
+    Murcielago(int dim) : dimension(dim) {
+        posicion.resize(dim);
+        velocidad.resize(dim);
+        frecuencia = 0.0;
+        loudness = 1.0;
+        pulseRate = 0.5;
+        fitness = 0.0;
+
+        for (int i = 0; i < dim; i++) {
+            posicion[i] = rand01();
+            velocidad[i] = 0.0;
         }
     }
 
-    // -----------------------------------------------------
-    // 🔹 Bucle principal del algoritmo
-    // -----------------------------------------------------
-    cout << "\n===== PROGRESO DE ITERACIONES =====" << endl;
-    for (int t = 0; t < MAX_ITER; t++) {
-        for (int i = 0; i < NUM_MURCIELAGOS; i++) {
-            frecuencia[i] = FREQ_MIN + (FREQ_MAX - FREQ_MIN) * rand01();
 
-            for (int j = 0; j < NUM_OBJETOS; j++) {
-                velocidades[i][j] += (posiciones[i][j] - best_pos[j]) * frecuencia[i];
-                posiciones[i][j] += velocidades[i][j];
+    static double rand01() {
+        return (double)rand() / RAND_MAX;
+    }
 
-                if (posiciones[i][j] < 0) posiciones[i][j] = 0;
-                if (posiciones[i][j] > 1) posiciones[i][j] = 1;
+    static int binarizar(double valor) {
+        return (rand01() < 1.0 / (1.0 + exp(-10 * (valor - 0.5)))) ? 1 : 0;
+    }
+
+    // Getters
+    const vector<double>& getPosicion() const { return posicion; }
+    double getFrecuencia() const { return frecuencia; }
+    double getLoudness() const { return loudness; }
+    double getPulseRate() const { return pulseRate; }
+    double getFitness() const { return fitness; }
+
+    // Setters
+    void setFrecuencia(double f) { frecuencia = f; }
+    void setLoudness(double l) { loudness = l; }
+    void setPulseRate(double pr) { pulseRate = pr; }
+    void setFitness(double f) { fitness = f; }
+    void setPosicion(const vector<double>& pos) { posicion = pos; }
+
+    // Actualizar velocidad
+    void actualizarVelocidad(const vector<double>& mejorPosicion) {
+        for (int i = 0; i < dimension; i++) {
+            velocidad[i] += (posicion[i] - mejorPosicion[i]) * frecuencia;
+        }
+    }
+
+    // Actualizar posición
+    void actualizarPosicion() {
+        for (int i = 0; i < dimension; i++) {
+            posicion[i] += velocidad[i];
+
+            // Limitar a [0, 1]
+            if (posicion[i] < 0.0) posicion[i] = 0.0;
+            if (posicion[i] > 1.0) posicion[i] = 1.0;
+        }
+    }
+
+    
+    void busquedaLocal(const vector<double>& mejorPosicion) {
+        for (int i = 0; i < dimension; i++) {
+            posicion[i] = mejorPosicion[i] + 0.001 * rand01();
+
+       
+            if (posicion[i] < 0.0) posicion[i] = 0.0;
+            if (posicion[i] > 1.0) posicion[i] = 1.0;
+        }
+    }
+
+    
+    vector<int> obtenerSolucionBinaria() const {
+        vector<int> solucion(dimension);
+        for (int i = 0; i < dimension; i++) {
+            solucion[i] = binarizar(posicion[i]);
+        }
+        return solucion;
+    }
+
+    
+    void actualizarParametros(double alpha, double gamma, int iteracion) {
+        loudness *= alpha;
+        pulseRate = pulseRate * (1.0 - exp(-gamma * iteracion));
+    }
+};
+
+
+class AlgoritmoMurcielago {
+private:
+    int numMurcielagos;
+    int maxIteraciones;
+    double freqMin;
+    double freqMax;
+    double alpha;
+    double gamma;
+    vector<Murcielago> poblacion;
+    Mochila* problema;
+    vector<double> mejorPosicion;
+    double mejorFitness;
+
+public:
+
+    AlgoritmoMurcielago(int numMurc, int maxIter, Mochila* prob)
+        : numMurcielagos(numMurc), maxIteraciones(maxIter), problema(prob) {
+        
+        freqMin = 0.0;
+        freqMax = 2.0;
+        alpha = 0.9;
+        gamma = 0.9;
+        mejorFitness = 0.0;
+
+        // Inicializar población de murciélagos
+        for (int i = 0; i < numMurcielagos; i++) {
+            Murcielago murc(problema->getNumObjetos());
+            poblacion.push_back(murc);
+        }
+
+        mejorPosicion.resize(problema->getNumObjetos(), 0.0);
+    }
+
+
+    void inicializar() {
+        mejorFitness = 0.0;
+
+
+        for (int i = 0; i < numMurcielagos; i++) {
+            vector<int> solucion = poblacion[i].obtenerSolucionBinaria();
+            double fitness = problema->calcularFitness(solucion);
+            poblacion[i].setFitness(fitness);
+
+            // Actualizar mejor solución
+            if (fitness > mejorFitness) {
+                mejorFitness = fitness;
+                mejorPosicion = poblacion[i].getPosicion();
             }
+        }
+    }
 
-            if (rand01() > pulse_rate[i]) {
-                for (int j = 0; j < NUM_OBJETOS; j++) {
-                    posiciones[i][j] = best_pos[j] + 0.001 * rand01();
-                    if (posiciones[i][j] < 0) posiciones[i][j] = 0;
-                    if (posiciones[i][j] > 1) posiciones[i][j] = 1;
+    // Ejecutar el algoritmo
+    void ejecutar() {
+        cout << "\n===== PROGRESO DE ITERACIONES =====" << endl;
+
+        for (int t = 0; t < maxIteraciones; t++) {
+            for (int i = 0; i < numMurcielagos; i++) {
+                // Generar nueva frecuencia
+                double freq = freqMin + (freqMax - freqMin) * Murcielago::rand01();
+                poblacion[i].setFrecuencia(freq);
+
+                // Actualizar velocidad y posición
+                poblacion[i].actualizarVelocidad(mejorPosicion);
+                poblacion[i].actualizarPosicion();
+
+                if (Murcielago::rand01() > poblacion[i].getPulseRate()) {
+                    poblacion[i].busquedaLocal(mejorPosicion);
+                }
+
+                // Evaluar nueva solución
+                vector<int> nuevaSolucion = poblacion[i].obtenerSolucionBinaria();
+                double nuevoFitness = problema->calcularFitness(nuevaSolucion);
+
+                // Aceptar nueva solución si es mejor
+                if (nuevoFitness >= poblacion[i].getFitness() && 
+                    Murcielago::rand01() < poblacion[i].getLoudness()) {
+                    
+                    poblacion[i].setFitness(nuevoFitness);
+                    poblacion[i].actualizarParametros(alpha, gamma, t);
+                }
+
+                if (nuevoFitness > mejorFitness) {
+                    mejorFitness = nuevoFitness;
+                    mejorPosicion = poblacion[i].getPosicion();
                 }
             }
 
-            vector<int> sol(NUM_OBJETOS);
-            for (int j = 0; j < NUM_OBJETOS; j++)
-                sol[j] = binarize(posiciones[i][j]);
-
-            double new_fitness = fitness(sol);
-
-            if (new_fitness >= fitness_val[i] && rand01() < loudness[i]) {
-                fitness_val[i] = new_fitness;
-                loudness[i] *= ALPHA;
-                pulse_rate[i] = pulse_rate[i] * (1 - exp(-GAMMA * t));
-            }
-
-            if (new_fitness > best_fitness) {
-                best_fitness = new_fitness;
-                best_pos = posiciones[i];
-            }
+            mostrarProgreso(t + 1);
         }
-
-        // 🔸 Mostrar progreso de cada iteración
-        vector<int> current_sol(NUM_OBJETOS);
-        int peso_actual = 0;
-        for (int j = 0; j < NUM_OBJETOS; j++) {
-            current_sol[j] = binarize(best_pos[j]);
-            peso_actual += pesos[j] * current_sol[j];
-        }
-
-        cout << "Iteración " << t + 1 
-             << " | Mejor valor = " << best_fitness 
-             << " | Peso = " << peso_actual << endl;
     }
 
-    // -----------------------------------------------------
-    // 🔹 Resultado final
-    // -----------------------------------------------------
-    vector<int> best_sol(NUM_OBJETOS);
-    for (int j = 0; j < NUM_OBJETOS; j++)
-        best_sol[j] = binarize(best_pos[j]);
+    void mostrarProgreso(int iteracion) const {
+        Murcielago temp(problema->getNumObjetos());
+        temp.setPosicion(mejorPosicion);
+        vector<int> solucion = temp.obtenerSolucionBinaria();
+        int peso = problema->calcularPesoTotal(solucion);
 
-    int total_peso = 0;
-    int total_valor = 0;
-
-    cout << "\n===== RESULTADOS FINALES =====" << endl;
-    cout << "Objetos seleccionados: ";
-
-    for (int j = 0; j < NUM_OBJETOS; j++) {
-        cout << best_sol[j] << " ";
-        total_peso += pesos[j] * best_sol[j];
-        total_valor += valores[j] * best_sol[j];
+        cout << "Iteracion " << iteracion 
+             << " | Mejor valor = " << mejorFitness 
+             << " | Peso = " << peso << endl;
     }
 
-    cout << "\nPeso total: " << total_peso;
-    cout << "\nValor total: " << total_valor;
-    cout << "\nFitness (valor máximo): " << best_fitness << endl;
-    cout << "===================================" << endl;
+    // Obtener mejor solución encontrada
+    vector<int> obtenerMejorSolucion() const {
+        Murcielago temp(problema->getNumObjetos());
+        temp.setPosicion(mejorPosicion);
+        return temp.obtenerSolucionBinaria();
+    }
+
+    // Mostrar resultados finales
+    void mostrarResultados() const {
+        vector<int> mejorSolucion = obtenerMejorSolucion();
+        int pesoTotal = problema->calcularPesoTotal(mejorSolucion);
+        int valorTotal = problema->calcularValorTotal(mejorSolucion);
+
+        cout << "\n===== RESULTADOS FINALES =====" << endl;
+        cout << "Objetos seleccionados: ";
+        for (int i = 0; i < mejorSolucion.size(); i++) {
+            cout << mejorSolucion[i] << " ";
+        }
+        cout << "\nPeso total: " << pesoTotal;
+        cout << "\nValor total: " << valorTotal;
+        cout << "\nFitness (valor máximo): " << mejorFitness << endl;
+        cout << "Factible: " << (problema->esFactible(mejorSolucion) ? "Si" : "No") << endl;
+        cout << "===================================" << endl;
+    }
+};
+
+// =============================================================================
+// 🔹 PROGRAMA PRINCIPAL
+// =============================================================================
+int main() {
+    srand(time(0));
+
+    const int NUM_OBJETOS = 10;
+    const int CAPACIDAD_MAX = 35;
+    
+    vector<int> valores = {10, 5, 15, 7, 6, 18, 3, 12, 8, 9};
+    vector<int> pesos   = {2, 5, 7, 1, 4, 6, 3, 6, 3, 2};
+
+    Mochila mochila(NUM_OBJETOS, CAPACIDAD_MAX, valores, pesos);
+    mochila.mostrarInfo();
+
+    // Configurar algoritmo
+    const int NUM_MURCIELAGOS = 20;
+    const int MAX_ITERACIONES = 100;
+
+    
+    AlgoritmoMurcielago algoritmo(NUM_MURCIELAGOS, MAX_ITERACIONES, &mochila);
+    
+    algoritmo.inicializar();
+    algoritmo.ejecutar();
+    
+    // Mostrar resultados
+    algoritmo.mostrarResultados();
 
     return 0;
 }
